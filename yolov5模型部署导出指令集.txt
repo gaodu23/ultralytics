@@ -1,0 +1,44 @@
+ 一，准备工作：
+
+1.下载Anaconda  mini并配置环境变量
+
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-py311_25.1.1-2-Windows-x86_64.exe
+//创建Conda新环境：
+conda create --name yolov5 python=3.11.9
+
+//激活环境
+conda activate yolov5
+
+pip install -r D:\yolotest\requirements.txt
+
+pip install piexif
+
+
+//退出环境
+conda deactivate
+//删除指定环境
+conda env remove --name yolov5
+
+//查看conda环境
+conda list
+conda env list
+
+//安装pytorch(此步骤不是必须的，一般来说不用安装，但是系统默认安装的的cpu版本的，如果你想换gpu版本的，可以重新安装)
+//pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cpu
+
+pip install torch==2.0.0+cu118 torchvision==0.15.1+cu118 -i https://mirrors.cloud.tencent.com/pypi/simple
+-i https://mirrors.cloud.tencent.com/pypi/simple
+
+3.测试（source换成自己路径）
+yolo predict model=yolo11n.pt source="D:/yolov11/v11Test/ultralytics-8.3.39/ultralytics/assets/" 
+
+pip install  ncnn 
+pip install pnnx 
+
+
+//pip install numpy==1.23.5
+
+
+
+yolo predict model=yolo11n.pt imgsz=640 conf=0.25 ✅
+
