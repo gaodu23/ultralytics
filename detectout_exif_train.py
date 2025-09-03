@@ -140,12 +140,22 @@ def run_detection(model_path="bestljd.pt", source_path="E:\\FLY\\100MSDCF", conf
         save_dir = input_dir / "detection_results"
         save_dir.mkdir(parents=True, exist_ok=True)
         
+        # 创建train_dataset目录结构用于后续训练
+        train_dataset_dir = input_dir / "train_dataset"
+        train_dataset_images_dir = train_dataset_dir / "images"
+        train_dataset_labels_dir = train_dataset_dir / "labels"
+        train_dataset_images_dir.mkdir(parents=True, exist_ok=True)
+        train_dataset_labels_dir.mkdir(parents=True, exist_ok=True)
+        
         logger.info(f"开始检测: {source_path}")
+        logger.info(f"检测结果保存在: {save_dir}")
+        logger.info(f"训练数据集保存在: {train_dataset_dir}")
         
         detected_count = 0
         total_processed = 0
         exif_success_count = 0
         exif_failed_count = 0
+        saved_labels_count = 0
         
         logger.info(f"🚀 开始处理图片，置信度阈值: {conf}")
         
@@ -199,6 +209,44 @@ def run_detection(model_path="bestljd.pt", source_path="E:\\FLY\\100MSDCF", conf
                     
                     logger.info(f"✅ 已保存检测结果图片: {img_name}")
                     
+                    # 保存YOLO格式的标注文件
+                    txt_name = Path(img_path).stem + '.txt'
+                    txt_path = train_dataset_labels_dir / txt_name
+                    
+                    # 获取原始图像尺寸用于归一化坐标
+                    original_img = cv2.imread(img_path)
+                    if original_img is not None:
+                        height, width = original_img.shape[:2]
+                        
+                        # 复制原始图像到train_dataset/images目录
+                        dataset_img_path = train_dataset_images_dir / img_name
+                        cv2.imwrite(str(dataset_img_path), original_img)
+                        
+                        # 写入YOLO格式标签文件
+                        with open(str(txt_path), 'w', encoding='utf-8') as f:
+                            for box in result.boxes:
+                                cls_id = int(box.cls)
+                                # 获取XYXY格式的边界框
+                                xyxy = box.xyxy[0].cpu().numpy()
+                                # 转换为YOLO格式 (center_x, center_y, width, height) 并归一化
+                                x_center = ((xyxy[0] + xyxy[2]) / 2) / width
+                                y_center = ((xyxy[1] + xyxy[3]) / 2) / height
+                                box_width = (xyxy[2] - xyxy[0]) / width
+                                box_height = (xyxy[3] - xyxy[1]) / height
+                                
+                                # 写入YOLO格式标签 (确保坐标在0-1范围内)
+                                x_center = max(0, min(1, x_center))
+                                y_center = max(0, min(1, y_center))
+                                box_width = max(0, min(1, box_width))
+                                box_height = max(0, min(1, box_height))
+                                
+                                f.write(f"{cls_id} {x_center:.6f} {y_center:.6f} {box_width:.6f} {box_height:.6f}\n")
+                        
+                        saved_labels_count += 1
+                        logger.info(f"📝 已保存YOLO标注文件: {txt_name}")
+                    else:
+                        logger.error(f"❌ 无法读取图像文件: {img_path}")
+                    
                     # 立即获取并写入EXIF信息
                     try:
                         exif_data = get_exif_data(img_path)
@@ -238,7 +286,8 @@ def run_detection(model_path="bestljd.pt", source_path="E:\\FLY\\100MSDCF", conf
         logger.info(f"📊 总共处理图片: {total_processed} 张")
         logger.info(f"✅ 检测到目标的图片: {detected_count} 张")
         logger.info(f"❌ 未检测到目标的图片: {total_processed - detected_count} 张")
-        logger.info(f"📄 成功写入EXIF信息: {exif_success_count} 张")
+        logger.info(f"� 已保存YOLO标注文件: {saved_labels_count} 个")
+        logger.info(f"�📄 成功写入EXIF信息: {exif_success_count} 张")
         if exif_failed_count > 0:
             logger.info(f"⚠️  EXIF信息处理失败: {exif_failed_count} 张")
         
@@ -259,10 +308,10 @@ def run_detection(model_path="bestljd.pt", source_path="E:\\FLY\\100MSDCF", conf
 def main():
     """命令行入口函数"""
     parser = argparse.ArgumentParser(description="使用YOLO进行目标检测并保留原始EXIF信息")
-    parser.add_argument("--model", type=str, default="bestljd.pt", help="YOLO模型路径")
+    parser.add_argument("--model", type=str, default="best.pt", help="YOLO模型路径")
     parser.add_argument("--source", type=str, default="E:\\FLY\\100MSDCF", help="图片源目录或文件")
     parser.add_argument("--conf", type=float, default=0.1, help="置信度阈值")
-    parser.add_argument("--device", type=str, default="", help="设备选择 (cpu, 0, 1, ...)")
+    parser.add_argument("--device", type=str, default="0", help="设备选择 (cpu, 0, 1, ...)")
     args = parser.parse_args()
     
     run_detection(args.model, args.source, args.conf, args.device)
@@ -273,8 +322,8 @@ if __name__ == "__main__":
     # 你可以在这里修改默认的模型路径、图片源目录和置信度阈值
     model_path = "./yolo11n.pt"  # 模型路径
     source_path = "E:\\BaiduNetdiskDownload\\WQM150101_0"  # 图片源目录
-    conf = 0.7  # 置信度阈值
-    device = ""  # 设备选择，空字符串表示自动选择
+    conf = 0.5  # 置信度阈值
+    device = "0"  # 设备选择，空字符串表示自动选择
     
     run_detection(model_path, source_path, conf, device)
 
